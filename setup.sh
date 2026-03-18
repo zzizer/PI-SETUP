@@ -279,10 +279,23 @@ fi
 
 if [ -f "package.json" ]; then
     log "Installing frontend dependencies..."
-    sudo -u "$REAL_USER" npm install --silent
 
-    log "Building frontend..."
-    sudo -u "$REAL_USER" npm run build
+    sudo -u "$REAL_USER" npm install --silent --no-audit --no-fund
+
+    log "Building frontend (low memory mode)..."
+
+    export NODE_OPTIONS="--max-old-space-size=512"
+
+    sudo -u "$REAL_USER" npm run build || {
+        log "Build failed, retrying with more memory..."
+
+        export NODE_OPTIONS="--max-old-space-size=768"
+        sudo -u "$REAL_USER" npm run build
+    }
+
+    log "Exporting static site..."
+    sudo -u "$REAL_USER" npm run export
+
 else
     log "No package.json found — skipping frontend build."
 fi
