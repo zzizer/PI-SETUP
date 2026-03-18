@@ -538,7 +538,6 @@ SERVICES=(
 for svc in "${SERVICES[@]}"; do
     systemctl enable "$svc"
     systemctl restart "$svc"
-    # Give daphne a moment before starting dependants
     [ "$svc" = "baifam-backend" ] && sleep 3
     log "  ✔ $svc started"
 done
