@@ -282,8 +282,6 @@ if [ -f "package.json" ]; then
 
     log "Building frontend..."
     sudo -u "$REAL_USER" npm run build
-    # Next.js 13+ outputs static export via `output: 'export'` in next.config.js
-    # The build step above already produces the /out directory — no separate export needed.
 else
     log "No package.json found — skipping frontend build."
 fi
