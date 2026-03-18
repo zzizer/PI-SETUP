@@ -27,8 +27,11 @@ prompt_secret() {
     local prompt="$1"
     local varname="$2"
     local value=""
+
+    local tty_file="/dev/tty"
+
     while [ -z "$value" ]; do
-        read -rsp "$prompt: " value
+        read -rsp "$prompt: " value < "$tty_file"
         echo
         if [ -z "$value" ]; then
             echo "  ✗ Value cannot be empty. Try again."
@@ -53,7 +56,6 @@ prompt_secret "Email host (e.g. smtp.gmail.com)" EMAIL_HOST
 prompt_secret "Response email address (e.g. noreply@example.com)" RESPONSE_EMAIL
 prompt_secret "Response email password / app password" RESPONSE_EMAIL_PASSWORD
 prompt_secret "Frontend URL (e.g. http://$DEVICE_NAME.local or http://192.168.1.x)" FRONTEND_URL
-
 echo ""
 
 # ─── Logging ──────────────────────────────────────────────────────
