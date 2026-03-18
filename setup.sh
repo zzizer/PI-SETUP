@@ -2,21 +2,37 @@
 
 set -e
 
-# ── Colours ───────────────────────────────────────────────────────
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-DIM='\033[2m'
-NC='\033[0m'
- 
-log()     { echo -e "   ${GREEN}✔${NC}  $1"; }
-info()    { echo -e "   ${BLUE}→${NC}  $1"; }
-skip()    { echo -e "   ${DIM}✔  $1 (already done)${NC}"; }
-warn()    { echo -e "   ${YELLOW}!${NC}  $1"; }
-error()   { echo -e "   ${RED}✘${NC}  $1"; exit 1; }
-section() { echo -e "\n${CYAN}${BOLD}── $1${NC}"; }
-
 echo "SETTING UP. This may take a while..."
+
+LOG_FILE = "/var/log/device_setup.log"
+STATE_FILE = "/var/log/device_setup.state"
+
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') | $1" | tee -a $LOG_FILE
+}
+
+mark_done() {
+    echo "$1" >> $STATE_FILE
+}
+
+is_done() {
+    grep -q "^$1$" $STATE_FILE 2>/dev/null
+}
+
+setup_packages() {
+    local STEP="INSTALL_PACKAGES"
+    if is_done $STEP; then
+        log "Packages already installed. Skipping."
+        return
+    fi
+
+    log "Installing dependencies..."
+    sudo apt update && sudo apt upgrade -y
+    sudo apt install -y python3-pip python3-venv nginx postgresql git avahi-daemon
+    sudo systemctl enable avahi-daemon
+    sudo systemctl start avahi-daemon
+}
+
+log "=== Starting Device Setup ==="
+setup_packages
+log "Device setup completed successfully."
