@@ -179,6 +179,10 @@ cd "$BACKEND_DIR"
 
 ENV_FILE="$BACKEND_DIR/.env"
 
+echo "DB_USER='$DB_USER'" 
+echo "DB_PASSWORD='$DB_PASSWORD'"
+echo "DB_NAME='$DB_NAME'"
+
 if [ ! -f "$ENV_FILE" ]; then
     log "Creating backend .env..."
 
