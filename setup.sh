@@ -56,7 +56,8 @@ apt-get install -y \
     avahi-daemon \
     redis-server \
     curl \
-    openssl
+    openssl \
+    dphys-swapfile
 
 # ══════════════════════════════════════════════════════════════════
 #  HOSTNAME
