@@ -256,7 +256,7 @@ log "Static files collected."
 deactivate
 
 # ══════════════════════════════════════════════════════════════════
-#  FRONTEND
+#  FRONTEND (Next.js - server mode, NOT static export)
 # ══════════════════════════════════════════════════════════════════
 log "Setting up frontend..."
 cd "$FRONTEND_DIR"
@@ -269,7 +269,7 @@ if [ ! -f "$FRONTEND_ENV" ]; then
 NEXT_PUBLIC_API_URL=/api
 EOF
 else
-    log "Updating frontend .env API URL..."
+    log "Ensuring frontend .env is correct..."
     if grep -q "NEXT_PUBLIC_API_URL" "$FRONTEND_ENV"; then
         sed -i 's|NEXT_PUBLIC_API_URL=.*|NEXT_PUBLIC_API_URL=/api|' "$FRONTEND_ENV"
     else
@@ -279,22 +279,16 @@ fi
 
 if [ -f "package.json" ]; then
     log "Installing frontend dependencies..."
-
     sudo -u "$REAL_USER" npm install --silent --no-audit --no-fund
 
     log "Building frontend (low memory mode)..."
-
     export NODE_OPTIONS="--max-old-space-size=512"
 
     sudo -u "$REAL_USER" npm run build || {
-        log "Build failed, retrying with more memory..."
-
+        log "Retry build with more memory..."
         export NODE_OPTIONS="--max-old-space-size=768"
         sudo -u "$REAL_USER" npm run build
     }
-
-    log "Exporting static site..."
-    sudo -u "$REAL_USER" npm run export
 
 else
     log "No package.json found — skipping frontend build."
@@ -322,9 +316,10 @@ server {
 
     # Static frontend (Next.js export)
     location / {
-        root $FRONTEND_DIR/out;
-        index index.html;
-        try_files \$uri \$uri/ /index.html;
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
     # Django REST API
@@ -500,6 +495,28 @@ SyslogIdentifier=baifam-flower
 WantedBy=multi-user.target
 EOF
 
+# ─── 5. Next.js Frontend ──────────────────────────────────────────
+cat > /etc/systemd/system/baifam-frontend.service <<EOF
+[Unit]
+Description=BAIFAM Next.js Frontend
+After=network.target
+
+[Service]
+User=$REAL_USER
+Group=$REAL_USER
+WorkingDirectory=$FRONTEND_DIR
+ExecStart=/usr/bin/npm run start -- -p 3000
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=baifam-frontend
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 # ══════════════════════════════════════════════════════════════════
 #  START ALL SERVICES
 # ══════════════════════════════════════════════════════════════════
@@ -514,6 +531,7 @@ SERVICES=(
     baifam-worker
     baifam-beat
     baifam-flower
+    baifam-frontend
     nginx
 )
 
