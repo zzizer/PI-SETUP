@@ -21,42 +21,14 @@ BACKEND_DIR="$APP_DIR/backend"
 FRONTEND_DIR="$APP_DIR/frontend"
 BRANCH="main"
 LOG_FILE="/var/log/device_setup.log"
-
-# ─── Prompt for secrets (never hardcoded) ─────────────────────────
-prompt_secret() {
-    local prompt="$1"
-    local varname="$2"
-    local value=""
-
-    local tty_file="/dev/tty"
-
-    while [ -z "$value" ]; do
-        read -rsp "$prompt: " value < "$tty_file"
-        echo
-        if [ -z "$value" ]; then
-            echo "  ✗ Value cannot be empty. Try again."
-        fi
-    done
-    eval "$varname='$value'"
-}
-
-echo ""
-echo "══════════════════════════════════════════"
-echo "  BAIFAM Device Setup — Secrets Prompt"
-echo "══════════════════════════════════════════"
-echo "These values will be written to .env files and never stored in this script."
-echo ""
-
-prompt_secret "PostgreSQL DB name (e.g. baifam_db)" DB_NAME
-prompt_secret "PostgreSQL DB user (e.g. baifam_user)" DB_USER
-prompt_secret "PostgreSQL DB password" DB_PASSWORD
-prompt_secret "Django SECRET_KEY (leave blank to auto-generate, press Enter to skip)" _SK_INPUT
-SECRET_KEY="${_SK_INPUT:-$(openssl rand -hex 32)}"
-prompt_secret "Email host (e.g. smtp.gmail.com)" EMAIL_HOST
-prompt_secret "Response email address (e.g. noreply@example.com)" RESPONSE_EMAIL
-prompt_secret "Response email password / app password" RESPONSE_EMAIL_PASSWORD
-prompt_secret "Frontend URL (e.g. http://$DEVICE_NAME.local or http://192.168.1.x)" FRONTEND_URL
-echo ""
+DB_NAME="baifam_db"
+DB_USER="baifam_user"
+DB_PASSWORD=$(openssl rand -hex 16)      
+SECRET_KEY=$(openssl rand -hex 32)
+EMAIL_HOST="smtp.example.com"
+RESPONSE_EMAIL="noreply@example.com"
+RESPONSE_EMAIL_PASSWORD=$(openssl rand -hex 16)
+FRONTEND_URL="http://$DEVICE_NAME.local"
 
 # ─── Logging ──────────────────────────────────────────────────────
 log() {
