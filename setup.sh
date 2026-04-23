@@ -253,6 +253,9 @@ log "Migrations complete."
 python manage.py collectstatic --noinput
 log "Static files collected."
 
+python manage.py add_data --all
+log "Initial system data loaded."
+
 deactivate
 
 # ══════════════════════════════════════════════════════════════════
