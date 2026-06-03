@@ -189,6 +189,12 @@ DEVICE_MODEL=$DEVICE_MODEL
 HARDWARE_VERSION=1.1
 FIRMWARE_VERSION=1.0.0
 FINGERPRINT_TEMPLATE_SIZE=1000
+
+SCANNER_LOCK_FILE=/tmp/accesspi_fingerprint_scanner.lock
+ACCESSPI_DAEMON_LOG_LEVEL=INFO
+RELAY_PIN=17
+RELAY_ACTIVE_SEC=3
+
 EOF
 
     # Lock down .env — readable only by owner
@@ -520,6 +526,29 @@ SyslogIdentifier=baifam-frontend
 WantedBy=multi-user.target
 EOF
 
+# ─── 6. Access Pi Verification Daemon ─────────────────────────────
+cat > /etc/systemd/system/baifam-access-daemon.service <<EOF
+[Unit]
+Description=BAIFAM Access Pi Verification Daemon
+After=network.target postgresql.service redis-server.service baifam-backend.service
+Requires=postgresql.service redis-server.service baifam-backend.service
+
+[Service]
+User=$REAL_USER
+Group=$REAL_USER
+WorkingDirectory=$BACKEND_DIR
+EnvironmentFile=$BACKEND_DIR/.env
+ExecStart=$VENV_BIN/python -m daemon.daemon
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=baifam-access-daemon
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 # ══════════════════════════════════════════════════════════════════
 #  START ALL SERVICES
 # ══════════════════════════════════════════════════════════════════
@@ -535,6 +564,7 @@ SERVICES=(
     baifam-beat
     baifam-flower
     baifam-frontend
+    baifam-access-daemon
     nginx
 )
 
@@ -572,6 +602,7 @@ log "  Access via mDNS:  http://$DEVICE_NAME.local"
 log "  Access via IP:    http://$(hostname -I | awk '{print $1}')"
 log "  Flower:           http://$(hostname -I | awk '{print $1}')/flower/"
 log "  Admin:            http://$(hostname -I | awk '{print $1}')/admin/"
+log "  Access Daemon Logs: journalctl -u baifam-access-daemon -f"
 log ""
 
 if [ "$ALL_OK" = false ]; then
