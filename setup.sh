@@ -19,11 +19,12 @@ APP_DIR="$APP_PARENT/PROJECT-BAIFAM"
 REPOSITORY_URL="https://github.com/zzizer/PROJECT-BAIFAM.git"
 BACKEND_DIR="$APP_DIR/backend"
 FRONTEND_DIR="$APP_DIR/frontend"
+ENV_FILE="$BACKEND_DIR/.env"
 BRANCH="main"
 LOG_FILE="/var/log/device_setup.log"
 DB_NAME="baifam_db"
 DB_USER="baifam_user"
-DB_PASSWORD=$(openssl rand -hex 16)      
+DB_PASSWORD=""
 SECRET_KEY=$(openssl rand -hex 32)
 EMAIL_HOST="smtp.example.com"
 RESPONSE_EMAIL="noreply@example.com"
@@ -152,7 +153,21 @@ log "Serial: $DEVICE_SERIAL | Model: $DEVICE_MODEL"
 log "Setting up backend..."
 cd "$BACKEND_DIR"
 
-ENV_FILE="$BACKEND_DIR/.env"
+if [ -f "$ENV_FILE" ]; then
+    EXISTING_DB_URL=$(grep '^DATABASE_URL=' "$ENV_FILE" || true)
+
+    if [ -n "$EXISTING_DB_URL" ]; then
+        DB_PASSWORD=$(echo "$EXISTING_DB_URL" \
+            | sed -E 's#.*://[^:]+:([^@]+)@.*#\1#')
+
+        log "Using existing database credentials from .env"
+    fi
+fi
+
+if [ -z "$DB_PASSWORD" ]; then
+    DB_PASSWORD=$(openssl rand -hex 16)
+    log "Generated new database credentials"
+fi
 
 echo "DB_USER='$DB_USER'" 
 echo "DB_PASSWORD='$DB_PASSWORD'"
@@ -211,8 +226,14 @@ if [ ! -d "$BACKEND_DIR/venv" ]; then
     sudo -u "$REAL_USER" python3 -m venv "$BACKEND_DIR/venv"
 fi
 
-sudo -u "$REAL_USER" "$BACKEND_DIR/venv/bin/pip" install --upgrade pip --quiet
-sudo -u "$REAL_USER" "$BACKEND_DIR/venv/bin/pip" install -r "$BACKEND_DIR/requirements.txt" --quiet
+log "Upgrading pip..."
+sudo -u "$REAL_USER" "$BACKEND_DIR/venv/bin/pip" install --upgrade pip \
+    2>&1 | tee -a "$LOG_FILE"
+
+log "Installing Python dependencies..."
+sudo -u "$REAL_USER" "$BACKEND_DIR/venv/bin/pip" install \
+    -r "$BACKEND_DIR/requirements.txt" \
+    -v 2>&1 | tee -a "$LOG_FILE"
 
 # ══════════════════════════════════════════════════════════════════
 #  POSTGRESQL
@@ -236,6 +257,10 @@ if ! sudo -u postgres psql -tAc \
         "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';"
     log "PostgreSQL user '$DB_USER' created."
 fi
+
+log "Ensuring PostgreSQL password matches .env"
+sudo -u postgres psql -c \
+    "ALTER USER $DB_USER WITH PASSWORD '$DB_PASSWORD';"
 
 # Create database if missing
 if ! sudo -u postgres psql -tAc \
