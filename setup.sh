@@ -363,7 +363,15 @@ fi
 
 if [ -f "package.json" ]; then
     log "Installing frontend dependencies..."
-    sudo -u "$REAL_USER" npm install --silent --no-audit --no-fund
+    log "Node: $(node -v) | npm: $(npm -v) | arch: $(uname -m)"
+
+    if [ -f "package-lock.json" ]; then
+        sudo -u "$REAL_USER" npm ci --include=optional --no-audit --no-fund
+    else
+        sudo -u "$REAL_USER" npm install --include=optional --no-audit --no-fund
+    fi
+
+    sudo -u "$REAL_USER" rm -rf .next
 
     log "Building frontend (low memory mode)..."
     sudo -u "$REAL_USER" env \
