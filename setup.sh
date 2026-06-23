@@ -95,6 +95,22 @@ apt-get install -y \
     dphys-swapfile
 
 # ══════════════════════════════════════════════════════════════════
+#  SWAP (Next.js build needs more memory on Raspberry Pi)
+# ══════════════════════════════════════════════════════════════════
+log "Configuring swap for frontend build..."
+
+if [ -f /etc/dphys-swapfile ]; then
+    if grep -q "^CONF_SWAPSIZE=" /etc/dphys-swapfile; then
+        sed -i 's/^CONF_SWAPSIZE=.*/CONF_SWAPSIZE=2048/' /etc/dphys-swapfile
+    else
+        echo "CONF_SWAPSIZE=2048" >> /etc/dphys-swapfile
+    fi
+
+    systemctl restart dphys-swapfile || true
+    swapon --show || true
+fi
+
+# ══════════════════════════════════════════════════════════════════
 #  HOSTNAME
 # ══════════════════════════════════════════════════════════════════
 CURRENT_HOST=$(hostname)
@@ -350,12 +366,15 @@ if [ -f "package.json" ]; then
     sudo -u "$REAL_USER" npm install --silent --no-audit --no-fund
 
     log "Building frontend (low memory mode)..."
-    export NODE_OPTIONS="--max-old-space-size=512"
-
-    sudo -u "$REAL_USER" npm run build || {
+    sudo -u "$REAL_USER" env \
+        NODE_OPTIONS="--max-old-space-size=1024" \
+        NEXT_TELEMETRY_DISABLED=1 \
+        npm run build || {
         log "Retry build with more memory..."
-        export NODE_OPTIONS="--max-old-space-size=768"
-        sudo -u "$REAL_USER" npm run build
+        sudo -u "$REAL_USER" env \
+            NODE_OPTIONS="--max-old-space-size=1536" \
+            NEXT_TELEMETRY_DISABLED=1 \
+            npm run build
     }
 
 else
