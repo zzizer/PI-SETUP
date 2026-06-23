@@ -36,11 +36,45 @@ log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') | $1" | tee -a "$LOG_FILE"
 }
 
+wait_for_apt() {
+    log "Waiting for apt/dpkg lock..."
+
+    while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 \
+       || fuser /var/lib/dpkg/lock >/dev/null 2>&1 \
+       || fuser /var/lib/apt/lists/lock >/dev/null 2>&1 \
+       || fuser /var/cache/apt/archives/lock >/dev/null 2>&1
+    do
+        log "Another apt/dpkg process is running. Waiting..."
+        sleep 5
+    done
+
+    dpkg --configure -a || true
+}
+
 log "Setup started by: $REAL_USER"
 
 # ══════════════════════════════════════════════════════════════════
 #  SYSTEM UPDATE
 # ══════════════════════════════════════════════════════════════════
+log "Disabling automatic package updates..."
+
+systemctl stop unattended-upgrades || true
+systemctl disable unattended-upgrades || true
+
+systemctl stop apt-daily.timer || true
+systemctl disable apt-daily.timer || true
+
+systemctl stop apt-daily-upgrade.timer || true
+systemctl disable apt-daily-upgrade.timer || true
+
+systemctl stop apt-daily.service || true
+systemctl disable apt-daily.service || true
+
+systemctl stop apt-daily-upgrade.service || true
+systemctl disable apt-daily-upgrade.service || true
+
+wait_for_apt
+
 log "Updating package lists..."
 apt-get update -qq
 
